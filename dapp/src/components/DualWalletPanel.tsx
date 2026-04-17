@@ -7,7 +7,6 @@ import {
 	useDisconnect,
 	usePublicClient,
 } from "wagmi";
-import { injected } from "wagmi/connectors";
 import { getChainLabel } from "../chains";
 import {
 	getCoreChainConfigForEspaceChain,
@@ -100,7 +99,11 @@ export function DualWalletPanel() {
 	const { address: espaceAddress, isConnected: isEspaceConnected } =
 		useAccount();
 	const espaceChainId = useChainId();
-	const { connect, isPending: isEspaceConnecting } = useConnect();
+	const {
+		connect,
+		connectors: espaceConnectors,
+		isPending: isEspaceConnecting,
+	} = useConnect();
 	const { disconnect } = useDisconnect();
 	const { isWrongChain, switchToTargetChain, targetChainId } =
 		useDevkitNetworkSync();
@@ -154,6 +157,10 @@ export function DualWalletPanel() {
 		coreWallet.chainId?.toLowerCase() === targetCoreChain.chainIdHex;
 	const isCoreConnectedAndReady = coreWallet.isConnected && isCoreOnTarget;
 	const isCoreConnectedWrongChain = coreWallet.isConnected && !isCoreOnTarget;
+	const preferredEspaceConnector =
+		espaceConnectors.find((connector) => connector.id === "metaMask") ??
+		espaceConnectors.find((connector) => connector.type === "injected") ??
+		espaceConnectors[0];
 	const eSpaceButtonLabel = !isEspaceConnected
 		? "Connect eSpace"
 		: isWrongChain
@@ -221,7 +228,10 @@ export function DualWalletPanel() {
 								type="button"
 								onClick={() => {
 									if (!isEspaceConnected) {
-										connect({ connector: injected() });
+										if (!preferredEspaceConnector) {
+											return;
+										}
+										connect({ connector: preferredEspaceConnector });
 										return;
 									}
 
@@ -230,7 +240,9 @@ export function DualWalletPanel() {
 									}
 								}}
 								disabled={
-									isEspaceConnecting || (isEspaceConnected && !isWrongChain)
+									isEspaceConnecting ||
+									(!preferredEspaceConnector && !isEspaceConnected) ||
+									(isEspaceConnected && !isWrongChain)
 								}
 								className="btn btn-secondary !px-4 !py-2 text-xs"
 							>
@@ -276,7 +288,7 @@ export function DualWalletPanel() {
 					/>
 					<DetailRow
 						label="Mode"
-						value="wagmi public client + injected provider"
+						value="wagmi public client + MetaMask/injected connector"
 					/>
 					<DetailRow
 						label="Session"

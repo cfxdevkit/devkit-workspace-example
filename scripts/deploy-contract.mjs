@@ -20,7 +20,7 @@
  *   DEVKIT_URL            DevKit backend URL (default: http://127.0.0.1:7748)
  */
 
-import { readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -49,6 +49,35 @@ const EXPLORER_BY_CHAIN_ID = {
 	71: "https://evmtestnet.confluxscan.org",
 	1030: "https://evm.confluxscan.org",
 };
+
+const DEFAULT_CHAIN_ID_BY_NETWORK = {
+	local: 2030,
+	testnet: 71,
+	mainnet: 1030,
+};
+
+function writeProjectNetworkArtifacts(network, chainId, source) {
+	const outputDir = resolve(__dirname, "..", "dapp", "src", "generated");
+	const outputPath = resolve(outputDir, "project-network.js");
+	const outputTsPath = resolve(outputDir, "project-network.ts");
+	const projectNetwork = {
+		network,
+		chainId,
+		source,
+	};
+
+	mkdirSync(outputDir, { recursive: true });
+	writeFileSync(
+		outputPath,
+		`export const PROJECT_NETWORK = ${JSON.stringify(projectNetwork, null, 2)};\nexport const PROJECT_DEFAULT_CHAIN_ID = ${projectNetwork.chainId};\nexport const PROJECT_NETWORK_SOURCE = ${JSON.stringify(projectNetwork.source)};\n`,
+		"utf8",
+	);
+	writeFileSync(
+		outputTsPath,
+		`export const PROJECT_NETWORK = ${JSON.stringify(projectNetwork, null, 2)} as const;\nexport const PROJECT_DEFAULT_CHAIN_ID: number = ${projectNetwork.chainId};\nexport const PROJECT_NETWORK_SOURCE: string = ${JSON.stringify(projectNetwork.source)};\n`,
+		"utf8",
+	);
+}
 
 async function fetchDevkit(path, init, timeout = 30_000) {
 	const response = await fetch(`${DEVKIT_URL}${path}`, {
@@ -133,6 +162,11 @@ async function deployLocal() {
 	updateFromDeployedContracts(state, contracts, "devkit-local");
 	writeTracking(state);
 	writeFrontendArtifactFromTracking(state);
+	writeProjectNetworkArtifacts(
+		DEVKIT_NETWORK,
+		DEFAULT_CHAIN_ID_BY_NETWORK[DEVKIT_NETWORK] ?? 2030,
+		"deploy-local",
+	);
 	console.log("Updated deployment tracking and frontend contract artifact.");
 }
 
@@ -230,6 +264,7 @@ async function deployPublic() {
 
 	writeTracking(state);
 	writeFrontendArtifactFromTracking(state);
+	writeProjectNetworkArtifacts(networkLabel, chainId, "deploy-public");
 
 	console.log(`Deployed ${CONTRACT_NAME} at ${contractAddress}`);
 	if (txHash) console.log(`Transaction: ${txHash}`);

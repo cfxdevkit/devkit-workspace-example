@@ -15,7 +15,10 @@ const DEFAULT_CHAIN_ID_BY_NETWORK = {
 function resolveProjectNetwork() {
 	const network = process.env.DEVKIT_NETWORK ?? "local";
 	const explicitChainId = Number(
-		process.env.DEPLOY_CHAIN_ID ?? process.env.PROJECT_CHAIN_ID ?? "",
+		process.env.DEPLOY_CHAIN_ID ??
+			process.env.PROJECT_CHAIN_ID ??
+			process.env.VITE_CHAIN_ID ??
+			"",
 	);
 
 	if (Number.isFinite(explicitChainId) && explicitChainId > 0) {
@@ -36,6 +39,7 @@ function resolveProjectNetwork() {
 await runOperation("sync-project-network", flags, async ({ step }) => {
 	const outputDir = resolve(process.cwd(), "dapp", "src", "generated");
 	const outputPath = resolve(outputDir, "project-network.js");
+	const outputTsPath = resolve(outputDir, "project-network.ts");
 	const projectNetwork = resolveProjectNetwork();
 
 	step("resolve-network", {
@@ -46,21 +50,22 @@ await runOperation("sync-project-network", flags, async ({ step }) => {
 	});
 
 	mkdirSync(outputDir, { recursive: true });
-	writeFileSync(
-		outputPath,
-		`export const PROJECT_NETWORK = ${JSON.stringify(projectNetwork, null, 2)};\nexport const PROJECT_DEFAULT_CHAIN_ID = ${projectNetwork.chainId};\nexport const PROJECT_NETWORK_SOURCE = ${JSON.stringify(projectNetwork.source)};\n`,
-		"utf8",
-	);
+
+	const jsContent = `export const PROJECT_NETWORK = ${JSON.stringify(projectNetwork, null, 2)};\nexport const PROJECT_DEFAULT_CHAIN_ID = ${projectNetwork.chainId};\nexport const PROJECT_NETWORK_SOURCE = ${JSON.stringify(projectNetwork.source)};\n`;
+	writeFileSync(outputPath, jsContent, "utf8");
+
+	const tsContent = `export const PROJECT_NETWORK = ${JSON.stringify(projectNetwork, null, 2)} as const;\nexport const PROJECT_DEFAULT_CHAIN_ID: number = ${projectNetwork.chainId};\nexport const PROJECT_NETWORK_SOURCE: string = ${JSON.stringify(projectNetwork.source)};\n`;
+	writeFileSync(outputTsPath, tsContent, "utf8");
 
 	step("write-generated-network", {
 		status: "completed",
-		outputPath: "dapp/src/generated/project-network.js",
+		outputPath: "dapp/src/generated/project-network.{js,ts}",
 	});
 	return {
 		network: projectNetwork.network,
 		chainId: projectNetwork.chainId,
 		source: projectNetwork.source,
-		outputPath: "dapp/src/generated/project-network.js",
-		message: `Wrote dapp/src/generated/project-network.js for ${projectNetwork.network} (${projectNetwork.chainId})`,
+		outputPath: "dapp/src/generated/project-network.{js,ts}",
+		message: `Wrote dapp/src/generated/project-network.js and .ts for ${projectNetwork.network} (${projectNetwork.chainId})`,
 	};
 });

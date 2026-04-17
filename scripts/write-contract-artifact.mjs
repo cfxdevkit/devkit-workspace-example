@@ -8,6 +8,60 @@ import { parseOperationFlags, runOperation } from "./lib/operations.mjs";
 
 const flags = parseOperationFlags();
 
+/**
+ * Merge addresses from the CONTRACT_ADDRESSES env var (JSON) into the map
+ * produced from deployments/contracts.json.
+ *
+ * This allows CI / Vercel builds to inject addresses when the tracking file
+ * is missing or incomplete.
+ *
+ * Expected shape:
+ *   CONTRACT_ADDRESSES='{"71":{"ExampleCounter":"0x1234..."}}'
+ *
+ * Individual overrides also work (takes precedence):
+ *   CONTRACT_ADDRESS_ExampleCounter_71=0x1234...
+ */
+function mergeEnvAddresses(addressMap) {
+	// 1. Bulk JSON override
+	const raw = process.env.CONTRACT_ADDRESSES?.trim();
+	if (raw) {
+		try {
+			const parsed = JSON.parse(raw);
+			for (const [cid, contracts] of Object.entries(parsed)) {
+				const chainId = Number(cid);
+				if (!Number.isFinite(chainId) || chainId <= 0) continue;
+				if (!addressMap[chainId]) addressMap[chainId] = {};
+				for (const [name, addr] of Object.entries(contracts)) {
+					if (typeof addr === "string" && addr.startsWith("0x")) {
+						addressMap[chainId][name] = addr;
+					}
+				}
+			}
+		} catch {
+			console.warn(
+				"WARNING: CONTRACT_ADDRESSES env var is not valid JSON — ignored.",
+			);
+		}
+	}
+
+	// 2. Per-contract overrides: CONTRACT_ADDRESS_<Name>_<chainId>=0x...
+	const prefix = "CONTRACT_ADDRESS_";
+	for (const [key, val] of Object.entries(process.env)) {
+		if (!key.startsWith(prefix) || !val) continue;
+		const rest = key.slice(prefix.length);
+		const lastUnderscore = rest.lastIndexOf("_");
+		if (lastUnderscore < 1) continue;
+		const name = rest.slice(0, lastUnderscore);
+		const chainId = Number(rest.slice(lastUnderscore + 1));
+		if (!Number.isFinite(chainId) || chainId <= 0) continue;
+		if (!val.startsWith("0x")) continue;
+		if (!addressMap[chainId]) addressMap[chainId] = {};
+		addressMap[chainId][name] = val;
+	}
+
+	return addressMap;
+}
+
 await runOperation("write-contract-artifact", flags, async ({ step }) => {
 	const outputDir = resolve(process.cwd(), "dapp", "src", "generated");
 	const outputPath = resolve(outputDir, "contracts-addresses.js");
@@ -16,8 +70,9 @@ await runOperation("write-contract-artifact", flags, async ({ step }) => {
 
 	// Read deployed addresses from the deployment tracking file so that
 	// successive `pnpm codegen` calls do NOT wipe addresses written by `pnpm deploy`.
+	// Then merge any env-var overrides (for CI / Vercel builds).
 	const trackingState = readTracking();
-	const addressMap = toAddressMap(trackingState);
+	const addressMap = mergeEnvAddresses(toAddressMap(trackingState));
 
 	const trackedAddress =
 		addressMap[chainId]?.[exampleCounterArtifact.contractName] ?? null;

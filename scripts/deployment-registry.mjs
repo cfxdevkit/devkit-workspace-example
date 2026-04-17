@@ -32,9 +32,11 @@ export const ARTIFACT_TS_PATH = resolve(
 
 // Both eSpace (2030) and Core (2029) local chain IDs map to the same 'local' bucket so
 // the deploy tracking stays consistent with backend normalization.
-const LOCAL_CHAIN_LABELS = {
+const CHAIN_ID_LABELS = {
 	2029: "local",
 	2030: "local",
+	71: "testnet",
+	1030: "mainnet",
 };
 
 function emptyState() {
@@ -111,7 +113,7 @@ export function normalizeChainId(contract) {
 }
 
 export function networkLabelForChainId(chainId) {
-	return LOCAL_CHAIN_LABELS[chainId] ?? `chain-${chainId}`;
+	return CHAIN_ID_LABELS[chainId] ?? `chain-${chainId}`;
 }
 
 export function updateFromDeployedContracts(

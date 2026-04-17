@@ -1,5 +1,6 @@
 import { defineChain } from "viem";
-import { appUrl } from "./app-base";
+import { appUrl, isHostedRuntime } from "./app-base";
+import { CONTRACT_ADDRESSES_BY_CHAIN_ID } from "./generated/contracts-addresses";
 
 export const confluxLocalESpace = defineChain({
 	id: 2030,
@@ -44,8 +45,44 @@ export const SUPPORTED_CHAINS = [
 	confluxMainnetESpace,
 ] as const;
 
+export const PUBLIC_ESPACE_CHAINS = [
+	confluxTestnetESpace,
+	confluxMainnetESpace,
+] as const;
+
+export function resolveRuntimeDefaultChainId(projectDefaultChainId: number): number {
+	if (!isHostedRuntime() || projectDefaultChainId !== confluxLocalESpace.id) {
+		return projectDefaultChainId;
+	}
+
+	for (const chain of PUBLIC_ESPACE_CHAINS) {
+		if (Object.keys(CONTRACT_ADDRESSES_BY_CHAIN_ID[chain.id] ?? {}).length > 0) {
+			return chain.id;
+		}
+	}
+
+	return confluxTestnetESpace.id;
+}
+
+export function getRuntimeEspaceChains(projectDefaultChainId: number) {
+	const runtimeDefaultChainId = resolveRuntimeDefaultChainId(projectDefaultChainId);
+	const baseChains = isHostedRuntime()
+		? [...PUBLIC_ESPACE_CHAINS]
+		: [...SUPPORTED_CHAINS];
+	const preferredChain =
+		baseChains.find((chain) => chain.id === runtimeDefaultChainId) ?? baseChains[0];
+
+	return [
+		preferredChain,
+		...baseChains.filter((chain) => chain.id !== preferredChain.id),
+	] as const;
+}
+
 export function isSupportedChainId(chainId: number): boolean {
-	return SUPPORTED_CHAINS.some((c) => c.id === chainId);
+	const supportedChains = isHostedRuntime()
+		? PUBLIC_ESPACE_CHAINS
+		: SUPPORTED_CHAINS;
+	return supportedChains.some((c) => c.id === chainId);
 }
 
 export function getChainLabel(chainId: number): string {

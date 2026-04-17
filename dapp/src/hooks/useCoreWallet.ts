@@ -19,11 +19,13 @@ export {
 } from "@devkit/conflux-wallet";
 
 import { getCoreChainConfigForEspaceChain as _getCoreChainConfigForEspaceChain } from "@devkit/conflux-wallet";
-import { appAbsoluteUrl } from "../app-base";
+import { appAbsoluteUrl, isLocalRuntime } from "../app-base";
 
 export function getCoreChainConfigForEspaceChain(espaceChainId: number) {
 	return _getCoreChainConfigForEspaceChain(
 		espaceChainId,
-		appAbsoluteUrl("core-rpc"),
+		espaceChainId === 2030 && isLocalRuntime()
+			? appAbsoluteUrl("core-rpc")
+			: undefined,
 	);
 }

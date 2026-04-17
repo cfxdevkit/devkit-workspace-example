@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "updatedAt": "2026-04-17T23:02:48.922Z",
+  "networks": {
+    "testnet": {
+      "chainId": 71,
+      "contracts": {
+        "ExampleCounter": {
+          "address": "0x976c5ead65b8f51c5cbf3117f41d11548f992b93",
+          "txHash": "0x1f283b4470eb3ad7b2781baf25e50a893b1d091d3f0364ba4ebe66a80ecf89c2",
+          "deployedAt": "2026-04-17T23:02:48.922Z",
+          "deployer": "",
+          "source": "devkit-public"
+        }
+      }
+    }
+  }
+}

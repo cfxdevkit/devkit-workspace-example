@@ -31,6 +31,58 @@ function buildSiweMessage(p: {
 	].join("\n");
 }
 
+function supportsLocalAuthApi(): boolean {
+	if (typeof window === "undefined") {
+		return false;
+	}
+
+	const { hostname, pathname } = window.location;
+	return (
+		hostname === "localhost" ||
+		hostname === "127.0.0.1" ||
+		/^(.*\/proxy\/\d+\/)/.test(pathname)
+	);
+}
+
+function resolveBooleanFlag(value: unknown): boolean | null {
+	if (typeof value !== "string") {
+		return null;
+	}
+
+	switch (value.trim().toLowerCase()) {
+		case "1":
+		case "true":
+		case "yes":
+		case "on":
+			return true;
+		case "0":
+		case "false":
+		case "no":
+		case "off":
+			return false;
+		default:
+			return null;
+	}
+}
+
+function isSiweEnabled(): boolean {
+	const explicitFlag = resolveBooleanFlag(import.meta.env.VITE_ENABLE_SIWE);
+	if (explicitFlag != null) {
+		return explicitFlag;
+	}
+
+	return supportsLocalAuthApi();
+}
+
+async function readJsonIfAvailable(response: Response) {
+	const contentType = response.headers.get("content-type") ?? "";
+	if (!contentType.toLowerCase().includes("application/json")) {
+		return null;
+	}
+
+	return response.json().catch(() => null);
+}
+
 export interface AuthState {
 	isAuthenticated: boolean;
 	isLoading: boolean;
@@ -50,6 +102,8 @@ export function useAuth(): AuthState {
 export function AuthProvider({ children }: { children: ReactNode }) {
 	const { address, isConnected, chainId } = useAccount();
 	const { signMessageAsync } = useSignMessage();
+	const siweEnabled = isSiweEnabled();
+	const authApiAvailable = siweEnabled;
 
 	const [isAuthenticated, setIsAuthenticated] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
@@ -62,8 +116,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			setIsAuthenticated(false);
 			return;
 		}
+		if (!siweEnabled) {
+			setIsAuthenticated(true);
+			attemptedRef.current = address;
+			return;
+		}
 		fetch(`${import.meta.env.BASE_URL}api/auth/me`, { credentials: "include" })
-			.then((r) => (r.ok ? r.json() : null))
+			.then((r) => (r.ok ? readJsonIfAvailable(r) : null))
 			.then((data) => {
 				if (data?.address?.toLowerCase() === address.toLowerCase()) {
 					setIsAuthenticated(true);
@@ -71,7 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 				}
 			})
 			.catch(() => {});
-	}, [address]);
+	}, [address, siweEnabled]);
 
 	useEffect(() => {
 		if (!isConnected) {
@@ -83,6 +142,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 	const signIn = useCallback(async () => {
 		if (!address || !chainId) return;
+		if (!siweEnabled) {
+			setIsAuthenticated(true);
+			setError(null);
+			attemptedRef.current = address;
+			return;
+		}
 		setIsLoading(true);
 		setError(null);
 		try {
@@ -90,7 +155,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 				credentials: "include",
 			});
 			if (!nr.ok) throw new Error("Failed to get nonce");
-			const { nonce } = await nr.json();
+			const nonceBody = await readJsonIfAvailable(nr);
+			if (!nonceBody?.nonce) {
+				throw new Error(
+					"SIWE is enabled but the auth backend did not return JSON.",
+				);
+			}
+			const { nonce } = nonceBody;
 
 			const message = buildSiweMessage({
 				domain: window.location.host,
@@ -110,7 +181,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 				credentials: "include",
 			});
 			if (!vr.ok) {
-				const body = await vr.json().catch(() => ({}));
+				const body = (await readJsonIfAvailable(vr)) ?? {};
 				throw new Error(body.error || "Verification failed");
 			}
 			setIsAuthenticated(true);
@@ -124,7 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		} finally {
 			setIsLoading(false);
 		}
-	}, [address, chainId, signMessageAsync]);
+	}, [address, chainId, signMessageAsync, siweEnabled]);
 
 	useEffect(() => {
 		if (
@@ -142,6 +213,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	}, [isConnected, address, isAuthenticated, signIn]);
 
 	const signOut = useCallback(async () => {
+		if (!siweEnabled) {
+			setIsAuthenticated(false);
+			attemptedRef.current = null;
+			return;
+		}
 		try {
 			await fetch(`${import.meta.env.BASE_URL}api/auth/logout`, {
 				method: "POST",
@@ -152,7 +228,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		}
 		setIsAuthenticated(false);
 		attemptedRef.current = null;
-	}, []);
+	}, [siweEnabled]);
 
 	return (
 		<AuthContext.Provider

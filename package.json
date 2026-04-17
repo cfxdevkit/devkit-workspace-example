@@ -26,6 +26,7 @@
 		"format": "pnpm exec biome format --write .",
 		"dev": "pnpm run sync:network && pnpm run codegen && pnpm --dir dapp dev",
 		"build": "pnpm run sync:network && pnpm run codegen && pnpm --dir dapp build",
+		"build:vercel": "node ./scripts/vercel-build.mjs",
 		"serve": "pnpm --dir dapp serve",
 		"stack:up": "node ./scripts/compose.mjs up -d --build",
 		"stack:rebuild": "node ./scripts/compose.mjs up -d --build --force-recreate",

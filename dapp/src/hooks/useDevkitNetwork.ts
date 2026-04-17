@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAccount, useChainId, useSwitchChain } from "wagmi";
-import { appUrl } from "../app-base";
-import { isSupportedChainId } from "../chains";
+import { appUrl, isLocalRuntime } from "../app-base";
+import { isSupportedChainId, resolveRuntimeDefaultChainId } from "../chains";
 import { PROJECT_DEFAULT_CHAIN_ID } from "../generated/project-network";
 
 interface DevkitNetworkStatus {
@@ -17,10 +17,20 @@ export function useDevkitNetworkSync() {
 	const { isConnected } = useAccount();
 	const walletChainId = useChainId();
 	const { switchChain } = useSwitchChain();
-	const [targetChainId, setTargetChainId] = useState(PROJECT_DEFAULT_CHAIN_ID);
+	const runtimeDefaultChainId = resolveRuntimeDefaultChainId(
+		PROJECT_DEFAULT_CHAIN_ID,
+	);
+	const [targetChainId, setTargetChainId] = useState(runtimeDefaultChainId);
 
 	useEffect(() => {
 		let cancelled = false;
+
+		if (!isLocalRuntime()) {
+			setTargetChainId(runtimeDefaultChainId);
+			return () => {
+				cancelled = true;
+			};
+		}
 
 		async function sync() {
 			try {
@@ -38,7 +48,7 @@ export function useDevkitNetworkSync() {
 				}
 			} catch {
 				if (cancelled) return;
-				setTargetChainId(PROJECT_DEFAULT_CHAIN_ID);
+				setTargetChainId(runtimeDefaultChainId);
 			}
 		}
 
@@ -46,8 +56,7 @@ export function useDevkitNetworkSync() {
 		return () => {
 			cancelled = true;
 		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
+	}, [runtimeDefaultChainId]);
 
 	const activeChainId = isConnected ? walletChainId : targetChainId;
 	const isWrongChain = isConnected && walletChainId !== targetChainId;

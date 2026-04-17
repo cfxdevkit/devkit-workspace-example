@@ -8,6 +8,7 @@
 		"dev": "vite",
 		"dev:proxy": "VITE_PROXY_BASE=/proxy/3001/ vite",
 		"build": "vite build",
+		"build:vercel": "pnpm -w run sync:network && pnpm -w run codegen && vite build",
 		"build:server": "tsc -p tsconfig.server.json",
 		"serve": "node dist-server/server.js"
 	},

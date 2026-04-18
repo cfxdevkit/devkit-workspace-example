@@ -1,5 +1,9 @@
 # Conflux DevKit — Project Example
 
+[![Open in Codespaces](https://img.shields.io/badge/Open%20in-GitHub%20Codespaces-181717?style=for-the-badge&logo=github)](https://codespaces.new/cfxdevkit/devkit-workspace-example)
+[![Live on Vercel](https://img.shields.io/badge/Live%20on-Vercel-000000?style=for-the-badge&logo=vercel)](https://devkit-workspace-example-dapp-3yrm.vercel.app/)
+[![View Repository](https://img.shields.io/badge/View-GitHub%20Repository-181717?style=for-the-badge&logo=github)](https://github.com/cfxdevkit/devkit-workspace-example)
+
 A full-stack dApp scaffold for [Conflux eSpace](https://doc.confluxnetwork.org/docs/espace/Overview), powered by [Conflux DevKit](https://github.com/cfxdevkit).
 
 The project ships a local Conflux node, a devkit backend, and a ready-to-use React dApp — all inside a one-click devcontainer. No manual setup required.
@@ -30,7 +34,7 @@ The project ships a local Conflux node, a devkit backend, and a ready-to-use Rea
 
 ### Option 2 — GitHub Codespaces
 
-1. Click **Code → Codespaces → Create codespace on main** from the GitHub repo page
+1. Click the **Open in Codespaces** badge above, or use **Code → Codespaces → Create codespace on main** from the GitHub repo page
 2. Wait for the codespace to provision — everything starts automatically
 3. In the codespace terminal:
    ```bash
